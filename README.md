@@ -1,37 +1,37 @@
 # OpenCode Agent - OpenClaw Control Bridge
 
-🚀 **OpenClaw Agent 控制 OpenCode CLI 的桥梁**
+🚀 **Control Bridge for OpenClaw Agent to manage OpenCode CLI**
 
 ---
 
-## 📖 What is this?
+## What is this?
 
-OpenCode Agent 是一个 OpenClaw Skill（技能），让 OpenClaw Agent（小午）能够控制 **OpenCode CLI** —— 一个免费、开源的 AI 编程助手（Claude Code 的替代品）。
+OpenCode Agent is an OpenClaw Skill that enables OpenClaw Agent to control **OpenCode CLI** — a free, open-source AI coding assistant (an alternative to Claude Code).
 
-### 核心定位
+### Core Design
 
-- **外部视角**（用户）：一个能让小午帮你写代码、审查代码、修复 Bug 的工具
-- **内部视角**（Agent）："控制 OpenCode CLI 的桥梁" — 决策何时调用、如何调用、解析输出、处理错误
+- **External Perspective (User)**: A tool that helps you write code, review code, and fix bugs
+- **Internal Perspective (Agent)**: "Control Bridge for OpenCode CLI" — decides when to call, how to call, parse output, handle errors
 
 ---
 
-## 🎯 Features
+## Features
 
-### 面向用户（你能做什么）
+### For Users (What you can do)
 
-- ✍️ **写代码**："实现用户注册功能"、"添加 API 错误处理"
-- 👀 **审查代码**："审查这段代码的安全性"、"检查代码质量"
-- 🔧 **重构优化**："优化性能"、"改进代码结构"
-- 💡 **解释代码**："解释这个文件做什么的"、"分析架构"
-- 🐛 **修复 Bug**："修复登录失败问题"、"调试这个错误"
+- ✍️ **Write Code**: "Implement user registration", "Add API error handling"
+- 👀 **Code Review**: "Review code security", "Check code quality"
+- 🔧 **Refactor**: "Optimize performance", "Improve code structure"
+- 💡 **Explain Code**: "Explain what this file does", "Analyze architecture"
+- 🐛 **Fix Bugs**: "Fix login failure", "Debug this error"
 
-### 面向 Agent（小午能做什么）
+### For Agents (What the Agent can do)
 
-- 🎯 **意图识别**：自动判断是否为编程任务
-- 🤔 **上下文感知**：收集相关文件、检查会话历史
-- 🧠 **命令决策**：选择正确的命令和标志（`--continue`、`--fork`、`--file`）
-- 📤 **输出解析**：解析 OpenCode 的响应，提取关键信息
-- 🔄 **错误恢复**：命令失败时自动处理、重试或降级
+- 🎯 **Intent Recognition**: Automatically detect coding tasks
+- 🤔 **Context Awareness**: Gather relevant files, check session history
+- 🧠 **Command Decision**: Select correct commands and flags (`--continue`, `--fork`, `--file`)
+- 📤 **Output Parsing**: Parse OpenCode responses and extract key information
+- 🔄 **Error Recovery**: Automatically handle failures, retry, or fallback
 
 ---
 
@@ -81,87 +81,87 @@ Or manually copy to `~/.openclaw/skills/opencode-agent/`.
 
 ### For Users
 
-Just ask OpenClaw Agent (小午) to code:
+Simply ask OpenClaw Agent to code:
 
-> "实现一个用户登录功能"
+> "Implement user login functionality"
 
-小午会：
-1. 识别这是编程任务 ✅
-2. 收集相关文件（`src/auth/login.ts`）
-3. 调用 OpenCode：`opencode run "实现用户登录功能" --file src/auth/login.ts`
-4. 解析输出并呈现给你
-5. 如果需要继续，使用 `--continue`
+The Agent will:
+1. Recognize this as a coding task ✅
+2. Gather relevant files (`src/auth/login.ts`)
+3. Call OpenCode: `opencode run "Implement user login" --file src/auth/login.ts`
+4. Parse output and present to you
+5. Use `--continue` if more work needed
 
 ### Example Conversations
 
 ```
-You: 实现用户注册功能
+You: Implement user registration
 
-小午: ✅ 正在实现用户注册...
-[OpenCode 实现代码...]
+Agent: ✅ Implementing user registration...
+[OpenCode generates code...]
 
-You: 添加邮箱验证
+You: Add email verification
 
-小午: ✅ 继续添加邮箱验证...
-[OpenCode 继续实现...]
+Agent: ✅ Adding email verification...
+[OpenCode continues implementing...]
 
-You: 审查一下代码
+You: Review the code
 
-小午: ✅ 审查代码...
-[OpenCode 审查代码安全性、质量...]
+Agent: ✅ Reviewing code...
+[OpenCode reviews security, quality...]
 ```
 
 ---
 
 ## Control Bridge - Agent Internal Guide
 
-> 这部分是给 OpenClaw Agent（小午）看的内部文档
+> Internal documentation for OpenClaw Agent
 
 ### Activation Conditions
 
-激活 Skill 当用户请求匹配以下模式：
+Activate skill when user request matches these patterns:
 
-1. **Implementation**: "implement", "create", "写代码", "实现"
-2. **Code Review**: "review", "audit", "review", "审查"
-3. **Refactoring**: "refactor", "optimize", "重构", "优化"
-4. **Explanation**: "explain", "what does", "解释"
-5. **Bug Fix**: "fix bug", "debug", "修复", "调试"
+1. **Implementation**: "implement", "build", "create", "write code", "generate"
+2. **Code Review**: "review", "audit", "check", "analyze code"
+3. **Refactoring**: "refactor", "improve", "optimize", "clean up"
+4. **Explanation**: "explain", "what does", "how does", "understand"
+5. **Bug Fix**: "fix bug", "debug", "resolve error", "investigate issue"
 
 ### Command Decision Logic
 
 ```
-用户请求 → 意图识别 → 上下文检查 → 命令选择
+User Request → Intent Recognition → Context Check → Command Selection
 
-示例：
-用户："继续添加错误处理"
-→ 意图：Implementation ✅
-→ 上下文：继续任务
-→ 命令：opencode run --continue "添加错误处理"
+Example:
+User: "Add error handling"
+→ Intent: Implementation ✅
+→ Context: Continue task
+→ Command: opencode run --continue "Add error handling"
 ```
 
 ### Core Commands for Agent
 
 | Scenarios | Command |
 |-----------|---------|
-| 新任务 | `opencode run "prompt"` |
-| 继续任务 | `opencode run --continue "prompt"` |
-| Fork 实验 | `opencode run --continue --fork "prompt"` |
-| 审查文件 | `opencode run --file file.ts "review"` |
-| 深度推理 | `opencode run -m claude-sonnet-4 "prompt"` |
+| New task | `opencode run "prompt"` |
+| Continue task | `opencode run --continue "prompt"` |
+| Fork alternative | `opencode run --continue --fork "prompt"` |
+| Review single file | `opencode run --file file.ts "review"` |
+| Deep reasoning | `opencode run -m claude-sonnet-4 "prompt"` |
 
 ### Integration Flow
 
 ```
-1. 意图识别 → 是否为编程任务？
-2. 收集上下文 → 相关文件、会话历史
-3. 构建命令 → 选择命令 + 标志
-4. 执行命令 → opencode run "prompt" --file ...
-5. 解析输出 → 提取代码、建议、错误
-6. 呈现用户 → 摘要、代码块、重点
-7. 错误处理 → 重试、降级、用户反馈
+1. Intent Recognition → Is this a coding task?
+2. Gather Context → Relevant files, session history
+3. Construct Command → Select command + flags
+4. Execute Command → opencode run "prompt" --file ...
+5. Parse Output → Extract code, suggestions, errors
+6. Present to User → Summary, code blocks, key points
+7. Error Handling → Retry, fallback, user feedback
 ```
 
-**详情参考**: `references/AGENTS_GUIDE.md`
+**For details**: `references/AGENTS_GUIDE.md`
 
 ---
 
@@ -173,28 +173,28 @@ You: 审查一下代码
 ┌─────────────────────────────────────────────────────────┐
 │ SKILL.md                                                 │
 ├─────────────────────────────────────────────────────────┤
-│ • Activation conditions (何时激活)                       │
-│ • Command decision logic (用哪个命令)                    │
-│ • Context awareness rules (如何收集上下文)             │
-│ • Error handling (出错怎么办)                           │
+│ • Activation conditions (when to activate)               │
+│ • Command decision logic (which command to use)          │
+│ • Context awareness rules (how to gather context)       │
+│ • Error handling (what to do when errors occur)         │
 └─────────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────────┐
 │ CLAUDE.md                                                │
 ├─────────────────────────────────────────────────────────┤
-│ • Workflow standards (工作流标准)                        │
-│ • Code review patterns (审查模式)                        │
-│ • Dev persona (开发者人设)                               │
+│ • Workflow standards (workflow patterns)                 │
+│ • Code review patterns (review patterns)                 │
+│ • Dev persona (developer character)                      │
 └─────────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────────┐
 │ references/                                              │
 ├─────────────────────────────────────────────────────────┤
-│ • AGENTS_GUIDE.md (Agent 控制指南)                      │
-│ • COMMANDS.md (详细命令参考)                            │
-│ • WORKFLOW.md (工作流模式)                              │
-│ • STANDARDS.md (编码标准)                               │
-│ • quick-reference.md (命令速查表)                        │
+│ • AGENTS_GUIDE.md (Agent control guide)                 │
+│ • COMMANDS.md (Detailed command reference)             │
+│ • WORKFLOW.md (Workflow patterns)                       │
+│ • STANDARDS.md (Coding standards)                       │
+│ • quick-reference.md (Command cheat sheet)              │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -223,90 +223,90 @@ You: 审查一下代码
 
 ### Example 1: Simple Implementation
 
-**You**: "实现用户登出功能"
+**You**: "Implement user logout functionality"
 
-**Agent (小午)**:
-1. ✅ 意图识别：Implementation
-2. 📁 文件上下文：`src/auth/session.ts`
-3. 🔧 命令：
+**Agent**:
+1. ✅ Intent recognition: Implementation
+2. 📁 File context: `src/auth/session.ts`
+3. 🔧 Command:
    ```bash
    opencode run "Implement user logout with JWT invalidation and session management" --file src/auth/session.ts
    ```
-4. 📤 解析输出：提取代码
-5. 💬 呈现用户：
+4. 📤 Parse output: Extract code
+5. 💬 Present to user:
    ```
-   ✅ 实现用户登出功能
+   ✅ Implemented user logout
 
-   新增/修改的文件：
-   - src/auth/logout.ts (新建)
-   - src/api/auth/logout.ts (新建)
-   - src/auth/session.ts (修改：添加 invalidateSession)
+   Files created/modified:
+   - src/auth/logout.ts (new)
+   - src/api/auth/logout.ts (new)
+   - src/auth/session.ts (modified: added invalidateSession)
 
-   主要功能：
-   - 清除 JWT token
-   - 使 session 失效
-   - 返回成功响应
+   Main functionality:
+   - Clear JWT token
+   - Invalidate session
+   - Return success response
    ```
 
 ### Example 2: Code Review
 
-**You**: "审查一下登录代码"
+**You**: "Review the login code"
 
-**Agent (小午)**:
-1. ✅ 意图识别：Code Review
-2. 📁 文件上下文：`src/auth/login.ts`, `src/auth/session.ts`
-3. 🔧 命令：
+**Agent**:
+1. ✅ Intent recognition: Code Review
+2. 📁 File context: `src/auth/login.ts`, `src/auth/session.ts`
+3. 🔧 Command:
    ```bash
    opencode run "Review authentication login and session management for security, quality, best practices" --file src/auth/login.ts --file src/auth/session.ts
    ```
-4. 📤 解析输出：提取审查发现
-5. 💬 呈现用户：
+4. 📤 Parse output: Extract review findings
+5. 💬 Present to user:
    ```
-   ✅ 代码审查完成
+   ✅ Code review completed
 
-   🔴 严重问题：
-   1. SQL 注入风险 (src/auth/login.ts:45) - 查询未参数化
-   2. JWT token 未过期检查
+   🔴 Critical Issues:
+   1. SQL injection risk (src/auth/login.ts:45) - Query not parameterized
+   2. JWT token not checked for expiration
 
-   🟡 建议改进：
-   1. 添加输入验证
-   2. 增加失败重试限制
-   3. 改进错误消息
+   🟡 Suggested Improvements:
+   1. Add input validation
+   2. Add failure retry limit
+   3. Improve error messages
 
-   建议优先处理 🔴 严重问题。
+   Recommend prioritizing 🔴 critical issues.
 
-   需要我修复这些问题吗？
+   Should I fix these issues?
    ```
 
 ### Example 3: Bug Fix
 
-**You**: "登录总是失败"
+**You**: "Login always fails"
 
-**Agent (小午)**:
-1. ✅ 意图识别：Bug Fix
-2. 📁 文件上下文：`logs/error.log`, `src/auth/login.ts`
-3. 🔧 命令：
+**Agent**:
+1. ✅ Intent recognition: Bug Fix
+2. 📁 File context: `logs/error.log`, `src/auth/login.ts`
+3. 🔧 Command:
    ```bash
    opencode run "Investigate: User reports login always fails. Find root cause and propose fix" --file logs/error.log --file src/auth/login.ts
    ```
-4. 📤 解析输出：提取根本原因
-5. 💬 呈现用户：
+4. 📤 Parse output: Extract root cause
+5. 💬 Present to user:
    ```
-   🔍 问题分析
+   🔍 Problem Analysis
 
-   根本原因：
-   密码比较逻辑错误 (src/auth/login.ts:78)
-   ❌ 错误：`if (password !== user.password)`
-   ✅ 应该：`bcrypt.compare(password, user.password)`
+   Root Cause:
+   Password comparison logic error (src/auth/login.ts:78)
+   ❌ Wrong: `if (password !== user.password)`
+   ✅ Should be: `bcrypt.compare(password, user.password)`
 
-   需要修复吗？
+   Should I fix this?
    ```
 
 ### Example 4: Multi-Phase Workflow
 
-**You**: "先实现注册，然后加邮箱验证，然后测试"
+**You**: "Implement registration, then add email verification, then test"
 
-**Agent (小午)**:
+**Agent**:
 ```bash
 # Phase 1
 opencode run "Implement user registration with password hashing"
@@ -324,15 +324,15 @@ opencode run --continue "Write tests for registration + verification"
 
 | Feature | Claude Code | OpenCode | Notes |
 |---------|------------|----------|-------|
-| **Open Source** | ❌ No | ✅ Yes | OpenCode 完全开源 |
-| **Price** | 💰 Subscription | ✅ Pay-as-you-go | 按使用量付费 |
-| **LLM Providers** | Anthropic only | ✅ 15+ providers | 支持 GPT、DeepSeek、Claude 等 |
-| **Session Resume** | `--resume` | `--continue` / `-c` | 语义相同 |
-| **Fork Sessions** | ❌ Not supported | ✅ `--fork` | OpenCode 独有 |
-| **Server Mode** | ❌ Not supported | ✅ `opencode serve` | 持久化后端，更快 |
-| **GitHub Integration** | ✅ Yes | ✅ Yes | 两者都支持 |
+| **Open Source** | ❌ No | ✅ Yes | OpenCode fully open source |
+| **Price** | 💰 Subscription | ✅ Pay-as-you-go | Pay per use |
+| **LLM Providers** | Anthropic only | ✅ 15+ providers | Supports GPT, DeepSeek, Claude, etc. |
+| **Session Resume** | `--resume` | `--continue` / `-c` | Same semantics |
+| **Fork Sessions** | ❌ Not supported | ✅ `--fork` | OpenCode exclusive |
+| **Server Mode** | ❌ Not supported | ✅ `opencode serve` | Persistent backend, faster |
+| **GitHub Integration** | ✅ Yes | ✅ Yes | Both support |
 
-**Cost Comparison** (估算):
+**Cost Comparison** (estimated):
 
 | Task | Claude Code ($10/mo) | OpenCode (Pay-as-you-go) |
 |------|---------------------|-------------------------|
@@ -340,8 +340,8 @@ opencode run --continue "Write tests for registration + verification"
 | 50 prompts (complex) | $10 | ≈ $8-15 |
 
 **Recommendation**:
-- 频繁使用 → OpenCode 更划算
-- 偶尔使用 → Claude Code 更简单
+- Frequent use → OpenCode more cost-effective
+- Occasional use → Claude Code simpler
 
 ---
 
@@ -456,3 +456,11 @@ Issues, feature requests, contributions: https://github.com/xuha233/opencode-age
 ---
 
 **🚀 Happy coding with OpenClaw + OpenCode!**
+
+---
+
+## Author & Maintainer
+
+**Author**: 言午间
+
+**Contact**: 3537183821@qq.com
