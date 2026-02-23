@@ -1,392 +1,506 @@
 ---
 name: opencode-agent
-description: "Open source coding agent using OpenCode CLI for implementation and reviews. Primary mode: direct CLI with session resume. Activates dev persona for pragmatic, experienced developer guidance."
+description: "OpenClaw Agent control bridge for OpenCode CLI. Activates on coding tasks: implementation, review, refactoring, analysis. Uses non-interactive mode with session resume."
 metadata: {"openclaw":{"emoji":"🚀","requires":{"bins":["gh"],"anyBins":["opencode"],"env":[]}}}
 ---
 
-# OpenCode Agent Skill 🚀
+# OpenCode Agent - Control Bridge for OpenCode CLI
 
-Open source coding agent using OpenCode CLI. Primary mode: direct CLI execution with session resume support.
+**Purpose**: This skill provides the interface for OpenClaw Agent to control OpenCode CLI for coding tasks.
 
-## When to Use
+---
 
-Trigger this skill when the user wants:
-- Code review, standards review, or architecture review
-- Implementation or refactoring
-- GitHub workflows, commits, and PRs
+## Activation Conditions
 
-## Primary Mode: Direct CLI (Non-Interactive)
+Activate this skill when user request matches **any** coding task pattern:
 
-OpenCode CLI supports non-interactive execution:
+### Implementation Tasks
+Keywords: `implement`, `build`, `create`, `add function`, `write code`, `generate`
+Examples:
+- "Implement user registration"
+- "Create a REST API endpoint"
+- "Add error handling"
 
-```bash
-# Prompt execution
-opencode run "Implement feature X"
-opencode run "Explain this code"
+### Code Review Tasks
+Keywords: `review`, `audit`, `check`, `analyze code`
+Examples:
+- "Review this code for bugs"
+- "Security audit of auth module"
+- "Check code quality"
 
-# Resume last session (continues most recent root session)
-opencode run --continue
-opencode run -c "Fix the review findings"
+### Refactoring Tasks
+Keywords: `refactor`, `improve`, `optimize`, `clean up`
+Examples:
+- "Refactor this function"
+- "Optimize database queries"
+- "Improve code structure"
 
-# Resume specific session
-opencode run --session <session-id>
-opencode run -s <session-id> "Add error handling"
+### Explanation Tasks
+Keywords: `explain`, `what does`, `how does`, `understand`
+Examples:
+- "Explain how authentication works"
+- "What does this function do?"
+- "Analyze the architecture"
 
-# Fork before continuing (creates new session with '(fork #N)' suffix)
-opencode run --continue --fork
-opencode run -s <id> --fork "Try a different approach"
+### Bug Fix Tasks
+Keywords: `fix bug`, `debug`, `resolve error`, `investigate issue`
+Examples:
+- "Fix the login bug"
+- "Debug this error"
+- "Investigate performance issue"
+
+---
+
+## Command Decision Logic
+
 ```
+User Request → Intent Recognition → Context Check → Command Selection
+
+┌─────────────────────────────────────────────────────────────────┐
+│ DECISION FLOW                                                   │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 1: Intent Recognition
+├─ Is coding task? ──NO──→ Use other skill
+└─ YES ───────────────────→ Continue to Step 2
+
+Step 2: Task Type
+├─ Implementation? ──→ Step 3a
+├─ Review? ──────────→ Step 3b
+├─ Refactor? ─────────→ Step 3c
+├─ Explain? ──────────→ Step 3d
+├─ Bug Fix? ──────────→ Step 3e
+└─ Other ─────────────→ Step 3a (default)
+
+Step 3a: Implementation Context
+├─ New project / unrelated task? ──→ opencode run "prompt"
+├─ Continue existing task? ────────→ Check Step 4
+└─ Risky change (large refactor)? ─→ opencode run --continue --fork "prompt"
+
+Step 3b: Code Review Context
+├─ Single file? ───────────────────→ opencode run --file file.ts "review"
+├─ Multiple files? ─────────────────→ opencode run --file f1.ts --file f2.ts "review"
+├─ After implementation? ────────────→ opencode run --continue "review changes"
+└─ Specific session? ───────────────→ opencode run --session <id> "review files"
+
+Step 3c: Refactoring Context
+├─ Small change (safe)? ────────────→ opencode run --continue "refactor X"
+├─ Large/Ambiguous change? ─────────→ opencode run --continue --fork "try refactoring"
+└─ Multiple approaches? ──────────────→ Fork each approach separately
+
+Step 3d: Explanation Context
+├─ Understand codebase? ─────────────→ opencode run "explain architecture"
+├─ Specific file? ───────────────────→ opencode run --file file.ts "explain this"
+└─ Session recall? ──────────────────→ Check Step 4
+
+Step 3e: Bug Fix Context
+├─ Error log provided? ──────────────→ opencode run --file error.log "investigate"
+├─ Context files available? ──────────→ opencode run --file src/ts "fix bug"
+└─ Multiple fix attempts? ────────────→ opencode run --continue --fork "try fix B"
+
+Step 4: Session Context
+├─ User says "continue"? ─────────────→ opencode run --continue "prompt"
+├─ User provides session ID? ─────────→ opencode run --session <id> "prompt"
+├─ Latest session relevant? ─────────→ Check via opencode session list
+└─ Need clean slate? ─────────────────→ opencode run "prompt"
+```
+
+---
 
 ## Core Commands
 
-### RUN - Primary execution command
+### Primary: `opencode run`
 
+**Syntax:**
 ```bash
-# Syntax
-opencode run [message..] [OPTIONS]
-opencode run --command <name> [message..] [OPTIONS]
-
-# Positional Arguments
-message..    Text messages to send (array)
-
-# Options
---command    Predefined command (message used as args)
---continue, -c     Continue the last session (most recent root session)
---session, -s <id> Continue specific session ID
---fork       Fork session before continuing (requires --continue or --session)
---share      Auto-share session
---model, -m <provider/model>  LLM model to use
---agent <name>      Select agent
---format <default|json>  Output format (default: formatted, json: raw events)
---file, -f <path>    Attach file(s) to message (array)
---title <string>    Session title (uses truncated prompt if empty)
---attach <url>       Attach to running server (e.g., http://localhost:4096)
---dir <path>         Directory to run in (remote path if attaching)
---port <port>        Local server port (random if not specified)
---variant <string>   Model variant (e.g., high, max, minimal)
---thinking          Show thinking blocks (default: false)
+opencode run "prompt" [OPTIONS]
 ```
 
-**Session Selection Logic**:
-- `--continue`: Finds most recent session where `parent_id IS NULL` (root sessions only)
-- `--session <id>`: Direct session ID lookup
-- Neither: Creates new session with title from `--title` or truncated prompt
+**Key Flags for Agent:**
 
-**Fork Behavior**:
-- Creates new session with parent ID set to original session
-- Title suffix: `"(fork #N)"` where N is fork count
-- Preserves message history from parent
+| Flag | When to Use | Context |
+|------|------------|---------|
+| `--continue, -c` | Task continuation | User says "continue", "add", "more" |
+| `--session, -s <id>` | Specific session recovery | User provides ID or references old task |
+| `--fork` | Alternative approaches | Risky changes, multiple implementations |
+| `--file, -f <path>` | Context attachment | References files, multi-file review, directory |
+| `--model, -m <provider/model>` | Model selection | Deep reasoning (Claude Sonnet), fast/cheap (DeepSeek) |
+| `--format json` | Programmatic output | Need to parse events, extract structured data |
 
-### SESSION - Session management
+**Recommended Patterns:**
 
+1. **New Implementation:**
+   ```bash
+   opencode run "Implement user registration with password hashing and JWT tokens"
+   ```
+
+2. **Continue Task:**
+   ```bash
+   opencode run --continue "Add email verification feature"
+   ```
+
+3. **Fork for Alternative:**
+   ```bash
+   opencode run --continue --fork "Try implementing with OAuth2 instead"
+   ```
+
+4. **With Context Files:**
+   ```bash
+   opencode run "Review authentication flow for security issues" --file src/auth.ts --file src/session.ts
+   ```
+
+5. **Specific Model:**
+   ```bash
+   opencode run --model anthropic/claude-sonnet-4-20250514 "Implement complex algorithm"
+   ```
+
+### Session Management
+
+**List Sessions:**
 ```bash
-# List sessions
-opencode session list
-opencode session list --max-count 10
-opencode session list --max-count 20 --format json
+opencode session list --format json
+```
+Returns JSON: `[{id, title, updated, created, projectId, directory}]`
 
-# Delete session
+**Check Latest:**
+```bash
+opencode session list | head -2
+```
+
+**Delete Session:**
+```bash
 opencode session delete <session-id>
 ```
 
-**List Options**:
-- `--max-count, -n <number>` - Limit to N most recent sessions
-- `--format <table|json>` - Output format (default: table)
+### Statistics
 
-**Table Output Fields**:
-- Session ID (first 8 chars for display)
-- Title (truncated if needed)
-- Updated (today's time or full datetime)
-
-**JSON Output Fields**:
-- `id`: Full session ID
-- `title`: Session title
-- `updated`: Last update timestamp
-- `created`: Creation timestamp
-- `projectId`: Project ID
-- `directory`: Working directory
-
-**Delete Behavior**:
-- Uses SQL cascade delete (removes session, messages, parts, todos)
-- Requires valid session ID
-
-### STATS - Usage statistics
-
+**Get Current Usage:**
 ```bash
-# Show stats (all time)
-opencode stats
-
-# Last 7 days
-opencode stats --days 7
-
-# Top 10 tools
-opencode stats --tools 10
-
-# Top 5 models
-opencode stats --models 5
-
-# All models
-opencode stats --models true
-
-# Current project only
-opencode stats --project ""
-
-# Specific project
-opencode stats --project <project-id>
+opencode stats --format json
 ```
 
-**Stats Options**:
-- `--days <number>` - Show stats for last N days (default: all time)
-- `--tools <number>` - Show top N tools (default: all)
-- `--models <number|true>` - Show model stats (true=all, number=top N)
-- `--project <string>` - Filter by project (empty=curr)
-
-**Stats Output**:
-- Total sessions, messages
-- Total cost and token usage (input, output, reasoning, cache)
-- Tool usage breakdown
-- Model usage breakdown (by provider/model)
-- Date range, days, cost/per/day, tokens/session
-
-### EXPORT - Export session data
-
+**Last N Days:**
 ```bash
-# Export latest session (interactive)
-opencode export
-
-# Export specific session
-opencode export <session-id>
+opencode stats --days 7 --format json
 ```
 
-**Export JSON Schema**:
-```json
-{
-  "info": {
-    "id": "session-id",
-    "title": "Session title",
-    "projectId": "project-id",
-    "directory": "/path/to/project",
-    "time": {
-      "created": 1234567890,
-      "updated": 1234567890
-    }
-  },
-  "messages": [
-    {
-      "info": {
-        "id": "msg-id",
-        "role": "user|assistant",
-        "agent": "agent-name",
-        "modelID": "model-name",
-        "providerID": "provider-name",
-        "time": { "created": 1234567890 },
-        "cost": 0.01,
-        "tokens": { "input": 100, "output": 200, "reasoning": 0 }
-      },
-      "parts": [
-        {
-          "id": "part-id",
-          "type": "text|tool|step-start|step-finish|reasoning",
-          "text": "...",
-          "tool": "tool-name",
-          "state": { "status": "completed|running|error", "input": {}, "output": "" }
-        }
-      ]
-    }
-  ]
-}
+### Export/Import
+
+**Export Session:**
+```bash
+opencode export <session-id> > backup.json
 ```
 
-### IMPORT - Import session data
-
+**Import Session:**
 ```bash
-# Import from file
-opencode import session.json
-
-# Import from share URL
-opencode import https://opncd.ai/share/abc123
-opencode import https://opencode.ai/share/abc123
+opencode import <file.json or URL>
 ```
 
-**Import Behavior**:
-- Generates new IDs for sessions/messages (preserves relationships)
-- Imports session, messages, parts
-- URL format: `https://opncd.ai/share/<slug>` or `https://opencode.ai/share/<slug>`
-- Share URL `/api/share/<slug>/data` endpoint returns flat array (session, message, part...)
+---
 
-## Multi-Phase Workflow (Session Resume)
+## Context Awareness Rules
+
+### Rule 1: Is This a Coding Task?
+
+**Positive Indicators ✅:**
+- "implement", "build", "create", "write code", "generate"
+- "review", "audit", "check", "analyze code"
+- "refactor", "improve", "optimize"
+- "fix bug", "debug", "resolve error"
+- "explain", "what does", "how does"
+- Mentions specific programming concepts (API, database, function, class)
+
+**Negative Indicators ❌:**
+- "write documentation" → Use file editing tools
+- "create blog post" → Use writing skills
+- "summarize this article" → Use reading skills
+- "translate to Chinese" → Use translation skills (not code)
+
+### Rule 2: Should I Add Files?
+
+**Add Files When:**
+- User explicitly mentions files: "Review file.ts"
+- Multiple related files: "Review auth module" → Attach all auth files
+- Directory reference: "Analyze this API" → Attach entire dir/
+- Error logs provided: Always attach
+- Code snippets in conversation: Create temp file, then attach
+
+**File Attachment Order:**
+1. User-specified files (highest priority)
+2. Related context files (same directory, naming patterns)
+3. Error logs / stack traces
+4. Test files (if testing mentioned)
+
+**Maximum Rule:** Attach up to 10 files at once. For more, ask user.
+
+### Rule 3: Continue vs New Session
+
+**Use `--continue` When:**
+- User says "continue", "add", "more", "next"
+- Follow-up to previous message
+- Implementing multi-phase plan
+- Refactoring based on review findings
+
+**Use `--session <id>` When:**
+- User provides specific session ID
+- Reference to earlier task (by time/description)
+- Switching between parallel work streams
+
+**Start New Session When:**
+- Completely unrelated task
+- Fresh start requested ("start over", "new task")
+- After major context break
+
+### Rule 4: Fork or Modify?
+
+**Fork When:**
+- Risky/large refactoring
+- Trying multiple approaches
+- Experimental changes
+- Unsure of correct solution
+
+**Modify When:**
+- Small, safe changes
+- Follow-up to clear plan
+- Bug fixes to existing code
+- Adding simple features
+
+---
+
+## Workflows
+
+### Standard Implementation Flow
 
 ```bash
-# Phase 1: Understand
-opencode run "Explain how authentication works"
+# Phase 1: Explore (Read-only)
+opencode run "Explain the current authentication implementation" --file src/auth.ts
 
 # Phase 2: Plan
-opencode run -c "Create a plan for adding password reset"
+opencode run --continue "Create a detailed plan for adding password reset feature"
 
 # Phase 3: Implement
-opencode run -c "Implement password reset feature"
+opencode run --continue "Implement the password reset feature"
 
 # Phase 4: Test
-opencode run -c "Run tests and fix issues"
+opencode run --continue "Write tests for password reset"
 
 # Phase 5: Review
-opencode run -c "Review my changes for security issues"
+opencode run --continue "Review the implementation for security issues"
 
-# Phase 6: Commit and PR
+# Phase 6: Commit
+git checkout -b feat/password-reset
 git add .
 git commit -m "feat: add password reset"
-git checkout -b feat/password-reset
 gh pr create -t "feat: add password reset" -b "..."
 ```
 
-**Session Resume**: Use `--continue` (or `-c`) to maintain conversation context across phases.
-
-## JSON Event Streaming (Scripting)
-
-OpenCode supports JSON event output for scripting:
+### Code Review Flow
 
 ```bash
-# Get raw JSON events
-opencode run --format json "Implement X"
+# Attach all relevant files
+opencode run -f src/auth/login.ts -f src/auth/session.ts -f src/api/auth.ts "Review authentication module for security issues, error handling, and code quality"
 
-# Parse events
-opencode run --format json "Implement X" | jq '.'
+# Fix findings
+opencode run --continue "Address the review findings:
+1. Fix SQL injection risk in login query
+2. Add input validation for email/username
+3. Handle edge case of expired JWT tokens"
+
+# Re-review
+opencode run --continue "Re-review after fixes"
 ```
 
-**Event Types**:
-- `tool_use`: Tool execution
-- `step_start`, `step_finish`: Step lifecycle
-- `text`: Assistant response text
-- `reasoning`: Thinking blocks (with `--thinking` flag)
-- `error`: Session errors
-- `session.status`: Session status changes
-
-**Event Structure**:
-```json
-{
-  "type": "event-type",
-  "timestamp": 1703275200000,
-  "sessionID": "abc123...",
-  "part": { ... },
-  "error": { ... }
-}
-```
-
-## Server Mode (Persistent Backend)
-
-Avoid cold start times with persistent server:
+### Bug Fix Flow
 
 ```bash
-# Terminal 1: Start server
-opencode serve --port 4096
+# Investigate
+opencode run -f logs/error.log -f src/auth/login.ts "Analyze this error: User reports 'Login fails with valid credentials'"
+opencode run --continue "What's the root cause?"
 
-# Terminal 2: Attach and connect
-opencode run --attach http://localhost:4096 "Implement X"
+# Fix
+opencode run --continue "Implement the fix for root cause identified"
 
-# Use remote directory
-opencode run --attach http://remote:4096 --dir /remote/path "Check file"
+# Verify
+opencode run --continue "Verify the fix resolves the issue"
 ```
 
-**Server Advantage**:
-- Persistent LLM connections
-- Faster startup
-- Remote development support
-- Shared session state
-
-## File Attachments
-
-Attach files/directories to prompts:
+### A/B Testing with Forks
 
 ```bash
-# Single file
-opencode run --file package.json "Review dependencies"
+# Approach A
+opencode run "Implement user authentication with JWT tokens"
 
-# Multiple files
-opencode run --file src/index.ts --file README.md "Review code + docs"
+# Fork for Approach B (OAuth2)
+opencode run --continue --fork "Replace JWT with OAuth2 flow"
 
-# Directory (mime: application/x-directory)
-opencode run --file src/ "Refactor this module"
+# Fork for Approach C (Session-based auth)
+opencode run -s <fork-b-id> --fork "Try session-based authentication"
+
+# Compare
+opencode run -s <original-id> "List pros/cons of JWT approach"
+opencode run -s <fork-b-id> "List pros/cons of OAuth2 approach"
 ```
 
-**File Types**:
-- Files: `text/plain`
-- Directories: `application/x-directory`
-- URLs: Converted via `pathToFileURL()`
+---
 
-## Configuration & Initialization
+## Output Interpretation
 
+### Default Output (Plain Text)
+**Format:** Human-readable text
+**Agent Action:** Present to user, summarize if long
+
+### JSON Output (`--format json`)
+**Format:** Event stream
+**Event Types:**
+- `message.updated` - Agent/model info
+- `message.part.updated` - Text/tool/reasoning
+- `step-start`, `step-finish` - Tool execution
+- `session.status` - Session state (idle/busy/error)
+
+**Agent Action:** Parse and extract:
+- Text content for user
+- Tool calls for logging
+- Errors for troubleshooting
+
+### Session List Output
+**Table Format:** Human-readable
+**Agent Action:** Show latest 5-10 sessions
+
+**JSON Format:** Structured data
+**Agent Action:** Parse for automation, date filtering
+
+---
+
+## Error Handling
+
+### Command Fails
+1. **Check OpenCode installed:**
+   ```bash
+   command -v opencode && opencode --version
+   ```
+2. **Check configured:**
+   ```bash
+   opencode auth list
+   ```
+3. **Check session exists:**
+   ```bash
+   opencode session list
+   ```
+4. **Retry with clearer prompt**
+
+### Timeout
+- **Message:** "OpenCode is still processing, waiting..."
+- **Action:** Wait 60s, then check progress again
+- **Fallback:** Ask user if they want to continue waiting
+
+### Rate Limits
+- **Message:** "Rate limit reached, retrying in 60s..."
+- **Action:** Wait 60s, then retry command
+
+### API Errors
+- **Message:** "API error: [error message]"
+- **Action:** Check auth credentials, or try different model
+
+---
+
+## Examples
+
+### Example 1: Simple Implementation
+
+**User:** "Implement a user logout function"
+
+**Agent Reasoning:**
+1. Intent: Implementation ✅
+2. Context: Existing auth module
+3. Command: `opencode run "Implement user logout with JWT token invalidation and session management"`
+
+**Agent Action:**
 ```bash
-# Initialize project (creates AGENTS.md)
-opencode init
-
-# Configuration files location
-~/.local/share/opencode/config.json  # Main config
-~/.local/share/opencode/auth.json    # Provider credentials
-~/.env                              # Project-level env vars
-
-# List configured providers
-opencode models anthropic  # List Anthropic models
-
-# Use specific model
-opencode run --model anthropic/claude-sonnet-4-20250514 "Task"
+opencode run "Implement user logout function:
+- Clear JWT token
+- Invalidate session
+- Add error handling
+- Return proper response" --file src/auth/session.ts
 ```
 
-## Non-Negotiable Rules
+### Example 2: Code Review
 
-1. **Use OpenCode CLI** — Direct CLI execution is the primary mode
-2. **Feature branch** — Always use a feature branch for changes
-3. **PR before done** — Always create a PR before completion
-4. **GitHub hygiene** — Precise titles, structured bodies, explicit test commands
-5. **Self-audit before completion** — Run implementation and review checklists
+**User:** "Review the login code"
 
-## Self-Audit Policy
+**Agent Reasoning:**
+1. Intent: Code Review ✅
+2. Context: Auth module (search for login files)
+3. Files: src/auth/login.ts, src/auth/session.ts
 
-Self-audit is required when any of these are true:
-- Code or config changed
-- Tests changed or should have changed
-- Review is requested
-- Docs changed with executable commands
+**Agent Action:**
+```bash
+opencode run "Review authentication login and session management for security issues, error handling, code quality" --file src/auth/login.ts --file src/auth/session.ts
+```
 
-## Tooling + Workflow References
+### Example 3: Bug Fix
 
-Read these before any work:
-- `references/WORKFLOW.md` - Branch, PR, review, multi-phase workflows
-- `references/STANDARDS.md` - Coding standards and limits
-- `references/COMMANDS.md` - Detailed command reference
-- `references/quick-reference.md` - Command cheat sheet
+**User:** "Login fails with valid credentials"
 
-## Requirements
+**Agent Reasoning:**
+1. Intent: Bug Fix ✅
+2. Context: Error log + login code
 
-- **OpenCode CLI** (`opencode`) - Install via npm, brew, choco, or scoop:
-  - `npm install -g opencode-ai`
-  - `brew install anomalyco/tap/opencode`
-  - `choco install opencode`
-  - `scoop install opencode`
-- **GitHub CLI** (`gh`) - For PR workflows
-- LLM provider API keys (configure with `opencode auth login`)
+**Agent Action:**
+```bash
+opencode run "Investigate: User reports 'Login fails with valid credentials'. Find root cause and propose fix" --file logs/error.log --file src/auth/login.ts
+```
+
+### Example 4: Multi-Task
+
+**User:** "Implement registration, then add email verification, then test"
+
+**Agent Reasoning:**
+1. Intent: Implementation (multi-phase)
+2. Use `--continue` for phases
+
+**Agent Action:**
+```bash
+# Phase 1
+opencode run "Implement user registration with password hashing"
+
+# Phase 2
+opencode run --continue "Add email verification after registration"
+
+# Phase 3
+opencode run --continue "Write tests for registration + verification workflow"
+```
+
+---
+
+## Configuration
+
+### OpenCode Config Files
+- **Main:** `~/.local/share/opencode/config.json`
+- **Auth:** `~/.local/share/opencode/auth.json`
+
+### Agent Behavior Recommendations
+
+1. **Always use `--continue`** for related tasks
+2. **Fork before risky changes**
+3. **Prefer `--format json`** for programmatic parsing
+4. **Check `opencode session list`** before new session
+5. **Report token usage** via `opencode stats` periodically
+6. **Add files liberally** — more context = better outcome
+7. **Model selection:** DeepSeek for fast/cheap, Claude Sonnet for deep reasoning
+
+---
 
 ## Quick Reference
 
-| Task | Command |
-|------|---------|
-| Run prompt | `opencode run "prompt"` |
-| Resume last | `opencode run --continue` |
-| Resume session | `opencode run --session <id>` |
-| Fork & continue | `opencode run --continue --fork` |
-| List sessions | `opencode session list` |
-| Show stats | `opencode stats --days 7` |
-| Export session | `opencode export <id>` |
-| Import session | `opencode import file.json` |
-
-## Dev Persona
-
-When reviewing or implementing code:
-- Be pragmatic and experienced
-- Prioritize simplicity over cleverness
-- Use examples when explaining concepts
-- Ask clarifying questions before making assumptions
-- Focus on maintainability and readability
-
-## License
-
-MIT
+| Scenario | Command |
+|----------|---------|
+| New task | `opencode run "prompt"` |
+| Continue task | `opencode run --continue "prompt"` |
+| Fork alternative | `opencode run --continue --fork "prompt"` |
+| Review single file | `opencode run --file file.ts "review"` |
+| Review multiple files | `opencode run -f f1.ts -f f2.ts "review"` |
+| Bug investigation | `opencode run -f error.log "investigate"` |
+| Deep reasoning | `opencode run -m anthropic/claude-sonnet-4 "task"` |
+| List sessions | `opencode session list --format json` |
+| Get stats | `opencode stats --format json` |
+| Export session | `opencode export <id> > backup.json` |
